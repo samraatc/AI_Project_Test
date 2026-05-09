@@ -54,9 +54,16 @@ export class AiOrchestrationService {
         this.logger.warn('No text extracted from files - using project metadata only');
       }
 
-      this.logger.log('Step 2: Embedding');
+      this.logger.log('Step 2: Embedding (optional)');
       for (const f of files) {
-        if (!f.embedded && f.ocrText) await this.embSvc.embedAndStore({ fileId: f.id, projectId: f.projectId, tenantId: f.tenantId, text: f.ocrText });
+        if (!f.embedded && f.ocrText) {
+          try {
+            await this.embSvc.embedAndStore({ fileId: f.id, projectId: f.projectId, tenantId: f.tenantId, text: f.ocrText });
+          } catch (embErr: any) {
+            // Embedding is optional — log and continue to estimation
+            this.logger.warn(`Embedding skipped for ${f.originalName}: ${embErr.message}`);
+          }
+        }
       }
 
       this.logger.log('Step 3: RAG retrieval');
