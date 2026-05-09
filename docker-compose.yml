@@ -1,0 +1,79 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: estimateos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: estimateos
+      POSTGRES_USER: estimateos
+      POSTGRES_PASSWORD: changeme
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U estimateos -d estimateos"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [estimateos-net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: estimateos-redis
+    restart: unless-stopped
+    command: redis-server --requirepass changeme
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "changeme", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [estimateos-net]
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: estimateos-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks: [estimateos-net]
+
+  minio:
+    image: minio/minio:latest
+    container_name: estimateos-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: changeme
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks: [estimateos-net]
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+  minio_data:
+
+networks:
+  estimateos-net:
+    driver: bridge

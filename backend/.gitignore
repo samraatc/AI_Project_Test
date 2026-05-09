@@ -1,0 +1,37 @@
+# --- OS Metadata ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- IDEs and Editors ---
+.visualstudio/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Environment & Secrets (CRITICAL) ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# --- Node / JavaScript ---
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.next/
+dist/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# --- Logs ---
+*.log
+logs/
