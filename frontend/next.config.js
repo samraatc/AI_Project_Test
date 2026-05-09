@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 module.exports = {
   reactStrictMode: true,
-  images: { domains: ['localhost'] },
+
+  // REQUIRED for your Dockerfile
+  output: 'standalone',
+
+  images: {
+    domains: ['localhost'],
+  },
 };
