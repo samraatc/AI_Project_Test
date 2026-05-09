@@ -36,7 +36,7 @@ export class EstimationsService {
   async create(dto: any, tenantId: string, userId: string) {
     const latest = await this.estRepo.findOne({ where: { projectId: dto.projectId, tenantId }, order: { versionNumber: 'DESC' } });
     const vn = (latest?.versionNumber || 0) + 1;
-    const saved = await this.estRepo.save(this.estRepo.create({ ...dto, tenantId, createdBy: userId, versionNumber: vn, title: dto.title || `Estimation v${vn}` }));
+    const saved = await this.estRepo.save(this.estRepo.create({ ...dto, tenantId, createdBy: userId, versionNumber: vn, title: dto.title || `Estimation v${vn}` })) as unknown as Estimation;
     await this.audit(tenantId, userId, 'estimation.created', saved.id);
     return saved;
   }
@@ -59,7 +59,7 @@ export class EstimationsService {
       Object.assign(item, dto);
     } else {
       const maxOrder = await this.itemRepo.maximum('sortOrder', { estimationId }) || 0;
-      item = this.itemRepo.create({ ...dto, estimationId, tenantId, sortOrder: maxOrder+1, source: 'manual' });
+      item = this.itemRepo.create({ ...dto, estimationId, tenantId, sortOrder: maxOrder+1, source: 'manual' }) as unknown as EstimationItem;
     }
     item.totalAmount = Number(item.quantity||0) * Number(item.unitRate||0) * (1 - Number(item.discountPct||0)/100);
     const saved = await this.itemRepo.save(item) as EstimationItem;

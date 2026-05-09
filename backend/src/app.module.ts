@@ -33,7 +33,7 @@ import { SearchModule }        from './modules/search/search.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [appConfig, databaseConfig, aiConfig, storageConfig], envFilePath: ['.env.local','.env'] }),
     TypeOrmModule.forRootAsync({ inject: [ConfigService], useFactory: (c: ConfigService) => ({ type: 'postgres', host: c.get('database.host'), port: c.get('database.port'), username: c.get('database.username'), password: c.get('database.password'), database: c.get('database.name'), entities: [__dirname + '/**/*.entity{.ts,.js}'], synchronize: false, logging: c.get('app.nodeEnv') === 'development', ssl: c.get('database.ssl') ? { rejectUnauthorized: false } : false }) }),
-    CacheModule.registerAsync({ isGlobal: true, inject: [ConfigService], useFactory: (c: ConfigService) => ({ store: redisStore, host: c.get('app.redisHost'), port: c.get('app.redisPort'), password: c.get('app.redisPassword') || undefined, ttl: 300 }) }),
+    CacheModule.registerAsync({ isGlobal: true, inject: [ConfigService], useFactory: (c: ConfigService) => ({ store: redisStore as any, host: c.get('app.redisHost'), port: c.get('app.redisPort'), password: c.get('app.redisPassword') || undefined, ttl: 300 }) }),
     BullModule.forRootAsync({ inject: [ConfigService], useFactory: (c: ConfigService) => ({ redis: { host: c.get('app.redisHost'), port: c.get('app.redisPort'), password: c.get('app.redisPassword') || undefined } }) }),
     ThrottlerModule.forRoot([{ name:'short', ttl:1000, limit:20 }, { name:'medium', ttl:10000, limit:100 }, { name:'long', ttl:60000, limit:300 }]),
     EventEmitterModule.forRoot({ wildcard: true }),

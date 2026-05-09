@@ -41,7 +41,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center"><Zap size={16} className="text-white"/></div>
             <div>
-              <p className="text-white font-semibold text-sm leading-none">EstimateOS</p>
+              <p className="text-white font-semibold text-sm leading-none">BENSON</p>
               <p className="text-slate-400 text-xs mt-0.5 truncate max-w-[130px]">{user.tenantName}</p>
             </div>
           </div>

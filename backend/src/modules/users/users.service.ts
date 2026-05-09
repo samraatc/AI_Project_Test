@@ -34,7 +34,7 @@ export class UsersService {
     const role = await this.roleRepo.findOne({ where: { id: dto.roleId, tenantId } });
     if (!role) throw new NotFoundException('Role not found');
     const passwordHash = await bcrypt.hash(dto.password || randomBytes(12).toString('hex'), 12);
-    const saved = await this.userRepo.save(this.userRepo.create({ ...dto, email: dto.email.toLowerCase(), tenantId, passwordHash, status: 'active' })) as User;
+    const saved = await this.userRepo.save(this.userRepo.create({ ...dto, email: dto.email.toLowerCase(), tenantId, passwordHash, status: 'active' })) as unknown as User;
     return this.sanitize(saved);
   }
 

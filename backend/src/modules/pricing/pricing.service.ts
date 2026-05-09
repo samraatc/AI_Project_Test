@@ -22,7 +22,7 @@ export class PricingService {
   async create(dto: any, tenantId: string, userId: string) { return this.repo.save(this.repo.create({ ...dto, tenantId, createdBy: userId, source: 'manual' })); }
   async update(id: string, dto: any, tenantId: string) { await this.repo.update({ id, tenantId }, dto); return this.findOne(id, tenantId); }
   async delete(id: string, tenantId: string) { await this.repo.update({ id, tenantId }, { isActive: false }); }
-  async bulkImport(items: any[], tenantId: string, userId: string) { return this.repo.save(items.map(i => this.repo.create({ ...i, tenantId, createdBy: userId, source: 'imported' }))); }
+  async bulkImport(items: any[], tenantId: string, userId: string) { const entities = items.map(i => this.repo.create({ ...i, tenantId, createdBy: userId, source: 'imported' })); return this.repo.save(entities as any); }
   async getCategories(tenantId: string): Promise<string[]> {
     const r = await this.repo.createQueryBuilder('p').select('DISTINCT p.category','category').where('p.tenantId = :tenantId', { tenantId }).getRawMany();
     return r.map(x => x.category);

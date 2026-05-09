@@ -1,0 +1,210 @@
+# ============================================================
+# EstimateOS — Complete Docker Compose
+# ============================================================
+
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: estimateos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       estimateos
+      POSTGRES_USER:     estimateos
+      POSTGRES_PASSWORD: changeme
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U estimateos -d estimateos"]
+      interval: 10s
+      timeout:  5s
+      retries:  5
+      start_period: 30s
+    networks: [estimateos-net]
+
+  # ── Redis ──────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: estimateos-redis
+    restart: unless-stopped
+    command: redis-server --requirepass changeme --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "changeme", "ping"]
+      interval: 10s
+      timeout:  5s
+      retries:  5
+      start_period: 10s
+    networks: [estimateos-net]
+
+  # ── Qdrant Vector DB ───────────────────────────────────────
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: estimateos-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+    networks: [estimateos-net]
+
+  # ── MinIO Object Storage ───────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: estimateos-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER:     minioadmin
+      MINIO_ROOT_PASSWORD: changeme
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout:  10s
+      retries:  3
+      start_period: 20s
+    networks: [estimateos-net]
+
+  # ── MinIO Bucket Init ──────────────────────────────────────
+  minio-init:
+    image: minio/mc:latest
+    container_name: estimateos-minio-init
+    restart: on-failure
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 minioadmin changeme;
+        mc mb --ignore-existing local/platform-system;
+        mc mb --ignore-existing local/quotations;
+        echo 'MinIO buckets ready';
+        exit 0;
+      "
+    networks: [estimateos-net]
+
+  # ── Backend API ────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: estimateos-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./backend/.env
+    environment:
+      DB_HOST:        postgres
+      DB_PORT:        5432
+      REDIS_HOST:     redis
+      REDIS_PORT:     6379
+      QDRANT_HOST:    qdrant
+      QDRANT_PORT:    6333
+      MINIO_ENDPOINT: minio
+      MINIO_PORT:     9000
+      NODE_ENV:       production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/v1/health || exit 1"]
+      interval: 30s
+      timeout:  10s
+      retries:  5
+      start_period: 60s
+    networks: [estimateos-net]
+
+  # ── AI Worker ─────────────────────────────────────────────
+  ai-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    container_name: estimateos-ai-worker
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DB_HOST:            postgres
+      DB_PORT:            5432
+      REDIS_HOST:         redis
+      REDIS_PORT:         6379
+      QDRANT_HOST:        qdrant
+      QDRANT_PORT:        6333
+      MINIO_ENDPOINT:     minio
+      MINIO_PORT:         9000
+      NODE_ENV:           production
+      WORKER_MODE:        "true"
+      WORKER_CONCURRENCY: "3"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks: [estimateos-net]
+
+  # ── Frontend ───────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3000/api/v1
+    container_name: estimateos-frontend
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [estimateos-net]
+
+  # ── Nginx Reverse Proxy ────────────────────────────────────
+  # Built from nginx/Dockerfile — avoids Windows volume mount issues
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: estimateos-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    networks: [estimateos-net]
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+  minio_data:
+
+networks:
+  estimateos-net:
+    driver: bridge

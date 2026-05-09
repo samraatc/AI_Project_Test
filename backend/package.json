@@ -9,7 +9,14 @@
     "migrate": "ts-node -r tsconfig-paths/register src/database/run-migrations.ts",
     "migrate:prod": "node dist/database/run-migrations",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
-    "test": "jest"
+    "test": "jest",
+    "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts",
+    "seed:fresh": "ts-node -r tsconfig-paths/register src/database/seed.ts --fresh",
+    "seed:clear": "ts-node -r tsconfig-paths/register src/database/seed.ts --clear",
+    "seed:users": "ts-node -r tsconfig-paths/register src/database/seed.ts --users",
+    "seed:local": "ts-node -r tsconfig-paths/register src/database/seed.ts --local",
+    "seed:local:fresh": "ts-node -r tsconfig-paths/register src/database/seed.ts --local --fresh",
+    "seed:local:clear": "ts-node -r tsconfig-paths/register src/database/seed.ts --local --clear"
   },
   "dependencies": {
     "@nestjs/bull": "^10.0.0",

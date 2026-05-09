@@ -32,7 +32,7 @@ export class ProjectsService {
   }
 
   async create(dto: any, tenantId: string, userId: string) {
-    const saved = await this.repo.save(this.repo.create({ ...dto, tenantId, createdBy: userId, status: dto.status || 'draft' }));
+    const saved = await this.repo.save(this.repo.create({ ...dto, tenantId, createdBy: userId, status: dto.status || 'draft' })) as unknown as Project;
     await this.auditRepo.save(this.auditRepo.create({ tenantId, userId, action: 'project.created', entityType: 'project', entityId: saved.id }));
     return saved;
   }

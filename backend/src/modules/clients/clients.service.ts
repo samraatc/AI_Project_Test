@@ -34,7 +34,7 @@ export class ClientsService {
       const ex = await this.repo.findOne({ where: { email: dto.email, tenantId } });
       if (ex) throw new ConflictException('Client email already exists');
     }
-    const saved = await this.repo.save(this.repo.create({ ...dto, tenantId, createdBy: userId }));
+    const saved = await this.repo.save(this.repo.create({ ...dto, tenantId, createdBy: userId })) as unknown as Client;
     await this.auditRepo.save(this.auditRepo.create({ tenantId, userId, action: 'client.created', entityType: 'client', entityId: saved.id }));
     return saved;
   }
