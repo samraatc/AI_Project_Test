@@ -46,9 +46,13 @@ export class AiOrchestrationService {
       if (!project) throw new Error(`Project ${projectId} not found`);
       const files = await this.fileRepo.find({ where: { projectId, tenantId } });
       if (!files.length) throw new Error('No files to process');
+      // Note: files without extractable text are OK - AI will use project metadata
 
       this.logger.log('Step 1: Document processing');
       const docCtx = await this.docAgent.processFiles(files, project);
+      if (!docCtx.extractedText?.trim()) {
+        this.logger.warn('No text extracted from files - using project metadata only');
+      }
 
       this.logger.log('Step 2: Embedding');
       for (const f of files) {
