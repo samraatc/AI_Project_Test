@@ -338,7 +338,7 @@ async function seedTenant(tenantRepo: Repository<Tenant>): Promise<Tenant> {
   }
 
   tenant = tenantRepo.create({
-    name:          'EstimateOS Demo',
+    name:          'BENSON Demo',
     slug:          TENANT_SLUG,
     plan:          'enterprise',
     status:        'active',
