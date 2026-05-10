@@ -158,7 +158,8 @@ services:
       dockerfile: Dockerfile
       args:
         # In production the browser calls the PUBLIC domain
-        NEXT_PUBLIC_API_URL: https://valuscop.com/api/v1
+        NEXT_PUBLIC_API_URL: https://api.valuscop.com/api/v1
+        
     container_name: estimateos-frontend
     restart: always
     depends_on:

@@ -209,6 +209,7 @@ services:
         # Points to the API inside Docker network via nginx on port 80
         # OR directly to the api service on port 3000
         NEXT_PUBLIC_API_URL: http://localhost:3000/api/v1
+        
     container_name: estimateos-frontend
     restart: unless-stopped
     ports:
@@ -219,15 +220,19 @@ services:
     networks: [estimateos-net]
 
   # ── Nginx Reverse Proxy ────────────────────────────────────
-  nginx:
-    image: nginx:alpine
+   nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
     container_name: estimateos-nginx
-    restart: unless-stopped
+    restart: always
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/proxy_params:/etc/nginx/proxy_params:ro
+      # Certbot SSL certs (mounted from host after ssl-setup runs)
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
     depends_on:
       api:
         condition: service_healthy
