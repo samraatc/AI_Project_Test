@@ -1,11 +1,29 @@
 /** @type {import('next').NextConfig} */
-module.exports = {
+const nextConfig = {
   reactStrictMode: true,
-
-  // REQUIRED for your Dockerfile
   output: 'standalone',
-
   images: {
-    domains: ['localhost'],
+    domains: [
+      'localhost',
+      'minio',
+      'valuscop.com',
+      'www.valuscop.com',
+    ],
+  },
+  experimental: {},
+  // Security headers for production
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'X-DNS-Prefetch-Control',  value: 'on' },
+          { key: 'X-Frame-Options',          value: 'SAMEORIGIN' },
+          { key: 'X-Content-Type-Options',   value: 'nosniff' },
+        ],
+      },
+    ];
   },
 };
+
+module.exports = nextConfig;
