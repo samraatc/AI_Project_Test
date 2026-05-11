@@ -208,7 +208,7 @@ services:
       args:
         # Points to the API inside Docker network via nginx on port 80
         # OR directly to the api service on port 3000
-        NEXT_PUBLIC_API_URL: http://localhost:3000/api/v1
+        NEXT_PUBLIC_API_URL:  http://localhost:3000/api/v1
         
     container_name: estimateos-frontend
     restart: unless-stopped

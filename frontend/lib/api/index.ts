@@ -207,6 +207,8 @@ export const estimationsApi = {
     req<any>('POST', `/estimations/project/${projectId}/analyze`),
   status:     (projectId: string) =>
     req<any>('GET', `/estimations/project/${projectId}/status`),
+  chat:       (estimationId: string, message: string, history: any[]) =>
+    req<any>('POST', `/estimations/${estimationId}/chat`, { message, history }),
 };
 
 // ── Quotations ────────────────────────────────────────────────

@@ -49,6 +49,13 @@ export class EstimationsController {
     return this.ai.getPipelineStatus(pid, u.tenantId);
   }
 
+  @Post(':id/chat')
+  @RequirePermissions('estimations:read')
+  @ApiOperation({ summary: 'Chat with AI about this estimation' })
+  chat(@Param('id') id: string, @Body() body: { message: string; history?: any[] }, @CurrentUser() u: any) {
+    return this.svc.chatWithEstimation(id, body.message, body.history || [], u.tenantId);
+  }
+
   // ── Dynamic :id routes (MUST come after all static routes) ──
 
   @Get()

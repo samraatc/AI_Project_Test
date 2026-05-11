@@ -16,6 +16,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ARG NEXT_PUBLIC_API_URL=http://localhost:3000/api/v1
+# ARG NEXT_PUBLIC_API_URL=http://44.201.117.105:3001/api/v1    // use this for production with external API --- IGNORE ---
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN mkdir -p public
 RUN npm run build
