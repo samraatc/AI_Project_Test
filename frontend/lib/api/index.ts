@@ -209,6 +209,16 @@ export const estimationsApi = {
     req<any>('GET', `/estimations/project/${projectId}/status`),
   chat:       (estimationId: string, message: string, history: any[]) =>
     req<any>('POST', `/estimations/${estimationId}/chat`, { message, history }),
+  pdf: async (estimationId: string): Promise<Blob> => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
+    const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+    const r = await fetch(`${BASE_URL}/estimations/${estimationId}/pdf`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      cache: 'no-store',
+    });
+    if (!r.ok) throw new Error('Estimation PDF generation failed');
+    return r.blob();
+  },
 };
 
 // ── Quotations ────────────────────────────────────────────────
@@ -218,6 +228,7 @@ export const quotationsApi = {
   getOne:  (id: string)        => req<any>('GET', `/quotations/${id}`),
   create:  (data: any)         => req<any>('POST', '/quotations', data),
   update:  (id: string, d: any) => req<any>('PATCH', `/quotations/${id}`, d),
+  delete:  (id: string)        => req<void>('DELETE', `/quotations/${id}`),
   send:    (id: string, d: any) => req<void>('POST', `/quotations/${id}/send`, d),
   pdf: async (id: string): Promise<Blob> => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';

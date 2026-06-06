@@ -74,11 +74,11 @@ export class QuotationsService {
     await this.quoteRepo.update(id, { status: 'sent', sentAt: new Date(), sentToEmail: dto.recipientEmail });
   }
 
-  async findAll(tenantId: string) { return this.quoteRepo.find({ where: { tenantId }, order: { createdAt: 'DESC' }, take: 200 }); }
+  async findAll(tenantId: string) { return this.quoteRepo.find({ where: { tenantId }, relations: ['project', 'estimation'], order: { createdAt: 'DESC' }, take: 200 }); }
   async findByProject(projectId: string, tenantId: string) { return this.quoteRepo.find({ where: { projectId, tenantId }, order: { createdAt: 'DESC' } }); }
 
   async findOne(id: string, tenantId: string): Promise<Quotation> {
-    const q = await this.quoteRepo.findOne({ where: { id, tenantId } });
+    const q = await this.quoteRepo.findOne({ where: { id, tenantId }, relations: ['project', 'estimation'] });
     if (!q) throw new NotFoundException('Quotation not found');
     return q;
   }
@@ -87,6 +87,11 @@ export class QuotationsService {
     await this.findOne(id, tenantId);
     await this.quoteRepo.update({ id, tenantId }, dto);
     return this.findOne(id, tenantId);
+  }
+
+  async delete(id: string, tenantId: string): Promise<void> {
+    await this.findOne(id, tenantId);
+    await this.quoteRepo.delete({ id, tenantId });
   }
 
   private async aiDraft(project: any, est: any, tenantId: string): Promise<any> {
@@ -103,10 +108,16 @@ export class QuotationsService {
     const Handlebars = require('handlebars');
     const compiled = Handlebars.compile(HTML_TEMPLATE);
     return compiled({
-      quoteNumber: q.quoteNumber, date: new Date().toLocaleDateString(), validUntil: q.validUntil ? new Date(q.validUntil).toLocaleDateString() : '—',
+      quoteNumber: q.quoteNumber,
+      date: new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }),
+      validUntil: q.validUntil ? new Date(q.validUntil).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—',
       projectName: proj?.name||'', clientName: proj?.client?.name||'Valued Client', scopeSummary: q.scopeSummary, termsConditions: q.termsConditions, currency: q.currency,
-      subtotal: fmt(Number(q.subtotal)), taxAmount: fmt(Number(q.taxAmount)), finalTotal: fmt(Number(q.finalTotal)),
-      itemGroups: Object.entries(grouped).map(([cat, items]) => ({ category: cat.charAt(0).toUpperCase()+cat.slice(1), items: (items as any[]).map(i => ({ description: i.description, quantity: i.quantity, unit: i.unit, unitRate: fmt(Number(i.unitRate)), total: fmt(Number(i.totalAmount)) })) })),
+      subtotal:     fmt(Number(q.subtotal)),
+      taxAmount:    fmt(Number(q.taxAmount)),
+      profitAmount: fmt(Math.max(0, Number(q.finalTotal) - Number(q.subtotal) - Number(q.taxAmount))),
+      finalTotal:   fmt(Number(q.finalTotal)),
+      showProfit:   (Number(q.finalTotal) - Number(q.subtotal) - Number(q.taxAmount)) > 0.01,
+      itemGroups: Object.entries(grouped).map(([cat, items]) => ({ category: ({ material:'Material', steel:'Steel', labor:'Labour', equipment:'Equipment', transport:'Transport', other:'Other' })[cat] || (cat.charAt(0).toUpperCase()+cat.slice(1)), items: (items as any[]).map(i => ({ description: i.description, quantity: i.quantity, unit: i.unit, unitRate: fmt(Number(i.unitRate)), total: fmt(Number(i.totalAmount)) })) })),
     });
   }
 

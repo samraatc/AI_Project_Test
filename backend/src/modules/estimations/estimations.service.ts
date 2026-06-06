@@ -1,5 +1,5 @@
 import { OpenAI } from 'openai';
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -9,6 +9,7 @@ import { AuditLog } from '../../common/entities/audit-log.entity';
 
 @Injectable()
 export class EstimationsService {
+  private readonly logger = new Logger(EstimationsService.name);
   constructor(
     @InjectRepository(Estimation)     private estRepo:   Repository<Estimation>,
     @InjectRepository(EstimationItem) private itemRepo:  Repository<EstimationItem>,
@@ -182,6 +183,214 @@ IMPORTANT RULES:
     });
 
     return { reply: response.choices[0].message.content || 'I could not generate a response. Please try again.' };
+  }
+
+  // ── Estimation PDF export ──────────────────────────────────
+  async generatePdf(id: string, tenantId: string): Promise<{ buffer: Buffer; filename: string }> {
+    const est = await this.findOne(id, tenantId) as any;
+    if (!est) throw new Error('Estimation not found');
+
+    const fmt = (n: any) => Number(n||0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtDate = (d: string | Date) => new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+
+    // Group items by category
+    const grouped: Record<string, any[]> = {};
+    (est.items || []).forEach((item: any) => {
+      grouped[item.category] = grouped[item.category] || [];
+      grouped[item.category].push(item);
+    });
+
+    const CAT_LABELS: Record<string,string> = {
+      material: 'Material', steel: 'Steel', labor: 'Labour',
+      equipment: 'Equipment', transport: 'Transport', other: 'Other',
+    };
+
+    const itemRowsHtml = Object.entries(grouped).map(([cat, items]) => {
+      const rows = (items as any[]).map(i => `
+        <tr>
+          <td>${i.code ? `<span style="color:#888;font-size:8pt">${i.code}</span><br>` : ''}${i.description}</td>
+          <td style="text-align:right">${Number(i.quantity).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+          <td>${i.unit}</td>
+          <td style="text-align:right">${est.currency} ${fmt(i.unitRate)}</td>
+          <td style="text-align:right${i.isFlagged ? ';color:#e53e3e' : ''}">${est.currency} ${fmt(i.totalAmount)}${i.isFlagged ? ' ⚠' : ''}</td>
+        </tr>`).join('');
+      return `
+        <tr class="cat-row">
+          <td colspan="5">${CAT_LABELS[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)}</td>
+        </tr>
+        ${rows}`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Arial, sans-serif; font-size: 10pt; color: #1a1a1a; }
+
+  .header { background: #1e3a5f; color: white; padding: 28px 32px; display: flex; justify-content: space-between; align-items: flex-start; }
+  .header h1 { font-size: 20pt; font-weight: 300; letter-spacing: 1px; }
+  .header .sub { margin-top: 4px; font-size: 9.5pt; opacity: 0.75; }
+  .header .meta-right { text-align: right; }
+  .header .meta-right .num { font-size: 13pt; font-weight: 600; }
+  .header .meta-right div { margin-top: 3px; font-size: 9pt; opacity: 0.85; }
+
+  .info-bar { background: #f5f7fa; padding: 12px 32px; border-bottom: 1px solid #e0e0e0; display: flex; gap: 32px; font-size: 9pt; }
+  .info-bar .item { }
+  .info-bar .label { color: #888; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; }
+  .info-bar .value { font-weight: 600; color: #1a1a1a; margin-top: 2px; }
+
+  .ai-banner { background: #ebf8ff; border-left: 4px solid #3182ce; padding: 10px 32px; font-size: 9pt; color: #2b6cb0; }
+
+  .section { padding: 18px 32px; border-bottom: 1px solid #f0f0f0; }
+  .section h2 { font-size: 10pt; font-weight: 700; color: #1e3a5f; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  table.items { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  table.items thead tr { background: #1e3a5f; color: white; }
+  table.items th { padding: 8px 10px; text-align: left; font-weight: 600; }
+  table.items th:not(:first-child) { text-align: right; }
+  table.items th:nth-child(3) { text-align: left; }
+  table.items td { padding: 6px 10px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+  .cat-row td { background: #eef2f7; font-weight: 700; color: #1e3a5f; font-size: 9pt; padding: 6px 10px; }
+  table.items tr:hover td { background: #fafbff; }
+
+  .totals { padding: 16px 32px; }
+  .totals table { max-width: 340px; margin-left: auto; }
+  .totals td { padding: 5px 10px; font-size: 9.5pt; }
+  .totals td:last-child { text-align: right; font-weight: 500; }
+  .tot-final td { border-top: 2.5px solid #1e3a5f; font-size: 12pt; font-weight: 700; color: #1e3a5f; padding-top: 8px; }
+
+  .risks { padding: 16px 32px; }
+  .risk-item { background: #fff8f0; border-left: 3px solid #ed8936; padding: 8px 12px; margin-bottom: 6px; border-radius: 0 4px 4px 0; }
+  .risk-item .risk-name { font-weight: 600; font-size: 9pt; }
+  .risk-item .risk-detail { font-size: 8.5pt; color: #555; margin-top: 2px; }
+
+  .footer { padding: 14px 32px; background: #f5f7fa; font-size: 8pt; color: #888; text-align: center; }
+  .confidence-bar { height: 6px; border-radius: 3px; background: #e0e0e0; margin-top: 4px; }
+  .confidence-fill { height: 100%; border-radius: 3px; background: ${Number(est.aiConfidence||0) >= 80 ? '#48bb78' : Number(est.aiConfidence||0) >= 60 ? '#ed8936' : '#f56565'}; width: ${est.aiConfidence || 0}%; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div>
+    <h1>ESTIMATION</h1>
+    <div class="sub">${est.project?.name || ''}</div>
+  </div>
+  <div class="meta-right">
+    <div class="num">${est.title}</div>
+    <div>Version ${est.versionNumber}</div>
+    <div>Date: ${fmtDate(est.createdAt)}</div>
+    <div>Status: ${(est.status || 'draft').charAt(0).toUpperCase() + (est.status || 'draft').slice(1)}</div>
+  </div>
+</div>
+
+<!-- Info bar -->
+<div class="info-bar">
+  <div class="item">
+    <div class="label">Project</div>
+    <div class="value">${est.project?.name || '—'}</div>
+  </div>
+  <div class="item">
+    <div class="label">Industry</div>
+    <div class="value">${est.project?.industry ? est.project.industry.replace('_', ' & ').replace('oil & gas', 'Oil & Gas').replace(/\b\w/g, (l: string) => l.toUpperCase()) : '—'}</div>
+  </div>
+  <div class="item">
+    <div class="label">Currency</div>
+    <div class="value">${est.currency}</div>
+  </div>
+  ${est.aiConfidence ? `
+  <div class="item">
+    <div class="label">AI Confidence</div>
+    <div class="value">${est.aiConfidence}%</div>
+    <div class="confidence-bar"><div class="confidence-fill"></div></div>
+  </div>` : ''}
+  <div class="item">
+    <div class="label">Line Items</div>
+    <div class="value">${(est.items || []).length} items</div>
+  </div>
+</div>
+
+${est.aiConfidence ? `<div class="ai-banner">🤖 AI-Generated Estimation — ${est.aiConfidence}% Confidence Score${est.aiSummary ? ` &nbsp;|&nbsp; ${est.aiSummary.substring(0, 120)}...` : ''}</div>` : ''}
+
+<!-- Cost Breakdown -->
+<div class="section">
+  <h2>Cost Breakdown</h2>
+  <table class="items">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th style="width:80px;text-align:right">Qty</th>
+        <th style="width:55px">Unit</th>
+        <th style="width:110px;text-align:right">Unit Rate (${est.currency})</th>
+        <th style="width:120px;text-align:right">Total (${est.currency})</th>
+      </tr>
+    </thead>
+    <tbody>${itemRowsHtml}</tbody>
+  </table>
+</div>
+
+<!-- Totals -->
+<div class="totals">
+  <table>
+    <tr><td>Subtotal</td><td>${est.currency} ${fmt(est.subtotal)}</td></tr>
+    <tr><td>Tax (${est.taxPct || 0}%)</td><td>${est.currency} ${fmt(est.taxAmount)}</td></tr>
+    ${Number(est.profitAmount || 0) > 0 ? `<tr><td>Profit Margin (${est.profitMarginPct || 0}%)</td><td>${est.currency} ${fmt(est.profitAmount)}</td></tr>` : ''}
+    <tr class="tot-final"><td>TOTAL</td><td>${est.currency} ${fmt(est.finalTotal)}</td></tr>
+  </table>
+</div>
+
+${(est.aiRiskAnalysis || []).length > 0 ? `
+<div class="section">
+  <h2>Risk Analysis</h2>
+  <div>
+    ${(est.aiRiskAnalysis || []).map((r: any) => `
+      <div class="risk-item">
+        <div class="risk-name">${r.risk || r} <span style="font-weight:400;color:#888;font-size:8pt">[${r.impact || ''} impact]</span></div>
+        ${r.mitigation ? `<div class="risk-detail">Mitigation: ${r.mitigation}</div>` : ''}
+      </div>
+    `).join('')}
+  </div>
+</div>` : ''}
+
+${(est.aiRecommendations || []).length > 0 ? `
+<div class="section">
+  <h2>AI Recommendations</h2>
+  <ul style="padding-left:18px;font-size:9pt;line-height:1.8;color:#444;">
+    ${(est.aiRecommendations || []).map((r: any) => `<li>${typeof r === 'string' ? r : r.description || JSON.stringify(r)}</li>`).join('')}
+  </ul>
+</div>` : ''}
+
+<div class="footer">
+  ${est.title} &nbsp;|&nbsp; ${est.project?.name || ''} &nbsp;|&nbsp; Generated ${fmtDate(new Date().toISOString())} &nbsp;|&nbsp; Confidential — For Internal Use
+</div>
+
+</body>
+</html>`;
+
+    try {
+      const puppeteer = require('puppeteer');
+      const browser = await puppeteer.launch({
+        headless: true,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      });
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      const pdf = await page.pdf({
+        format: 'A4',
+        margin: { top: '15mm', right: '0mm', bottom: '15mm', left: '0mm' },
+        printBackground: true,
+      });
+      await browser.close();
+      const filename = `${est.title.replace(/\s+/g, '-')}-v${est.versionNumber}.pdf`;
+      return { buffer: Buffer.from(pdf), filename };
+    } catch (err: any) {
+      this.logger.error(`Estimation PDF generation failed: ${err.message}`);
+      throw new Error('PDF generation failed. Check puppeteer/chromium is installed.');
+    }
   }
 
 }

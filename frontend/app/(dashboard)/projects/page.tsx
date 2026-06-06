@@ -8,42 +8,37 @@ import { Plus, Search, FolderOpen, Upload, X, Loader2, Copy, Calendar, Clock } f
 import { projectsApi, filesApi } from '@/lib/api';
 
 const INDUSTRIES = [
-  { value: 'construction',    label: 'Construction' },
-  { value: 'oil_gas',         label: 'Oil & Gas' },
-  { value: 'fabrication',     label: 'Fabrication' },
-  { value: 'manufacturing',   label: 'Manufacturing' },
-  { value: 'epc',             label: 'EPC (Engineering, Procurement & Construction)' },
-  { value: 'civil',           label: 'Civil Engineering' },
-  { value: 'mechanical',      label: 'Mechanical Engineering' },
-  { value: 'electrical',      label: 'Electrical Engineering' },
-  { value: 'other',           label: 'Other' },
+  { value: 'construction',  label: 'Construction' },
+  { value: 'oil_gas',       label: 'Oil & Gas' },
+  { value: 'fabrication',   label: 'Fabrication' },
+  { value: 'manufacturing', label: 'Manufacturing' },
+  { value: 'epc',           label: 'EPC (Engineering, Procurement & Construction)' },
+  { value: 'civil',         label: 'Civil Engineering' },
+  { value: 'mechanical',    label: 'Mechanical Engineering' },
+  { value: 'electrical',    label: 'Electrical Engineering' },
+  { value: 'other',         label: 'Other' },
 ];
 
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Draft', active: 'Active', completed: 'Completed', archived: 'Archived',
 };
-
 const SC: Record<string,string> = {
-  draft:'bg-gray-100 text-gray-600',
-  active:'bg-blue-100 text-blue-700',
-  completed:'bg-green-100 text-green-700',
-  archived:'bg-gray-50 text-gray-400',
+  draft:'bg-gray-100 text-gray-600', active:'bg-blue-100 text-blue-700',
+  completed:'bg-green-100 text-green-700', archived:'bg-gray-50 text-gray-400',
 };
 const AC: Record<string,string> = {
-  pending:'bg-gray-100 text-gray-400',
-  processing:'bg-amber-100 text-amber-700',
-  completed:'bg-green-100 text-green-700',
-  failed:'bg-red-100 text-red-600',
+  pending:'bg-gray-100 text-gray-400', processing:'bg-amber-100 text-amber-700',
+  completed:'bg-green-100 text-green-700', failed:'bg-red-100 text-red-600',
 };
 
-function formatDateTime(iso: string) {
-  const d = new Date(iso);
-  return {
-    date: d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }),
-    time: d.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', hour12: true }),
-  };
+function fmtDate(iso: string) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
 }
-
+function fmtTime(iso: string) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', hour12: true });
+}
 function getIndustryLabel(value: string) {
   return INDUSTRIES.find(i => i.value === value)?.label || value;
 }
@@ -51,7 +46,8 @@ function getIndustryLabel(value: string) {
 function NewProjectModal({ onClose }: { onClose: () => void }) {
   const router = useRouter(); const qc = useQueryClient();
   const [form, setForm] = useState({ name:'', industry:'', currency:'USD', description:'' });
-  const [files, setFiles] = useState<File[]>([]); const [saving, setSaving] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [saving, setSaving] = useState(false);
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop: f => setFiles(p => [...p,...f]), multiple: true });
 
   const handleCreate = async () => {
@@ -59,7 +55,11 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
     setSaving(true);
     try {
       const proj = await projectsApi.create(form) as any;
-      if (files.length > 0) { toast.info(`Uploading ${files.length} file(s)…`); await filesApi.upload(proj.id, files); await projectsApi.update(proj.id, {}); }
+      if (files.length > 0) {
+        toast.info(`Uploading ${files.length} file(s)…`);
+        await filesApi.upload(proj.id, files);
+        await projectsApi.update(proj.id, {});
+      }
       toast.success('Project created! AI analysis queued.');
       qc.invalidateQueries({ queryKey: ['projects'] });
       router.push(`/projects/${proj.id}`);
@@ -75,35 +75,45 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X size={18}/></button>
         </div>
         <div className="p-6 space-y-4">
-          <div><label className="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
             <input value={form.name} onChange={e => setForm(f => ({...f,name:e.target.value}))} placeholder="e.g. Steel Structure Phase 1"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/></div>
+              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+          </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Industry</label>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Industry</label>
               <select value={form.industry} onChange={e => setForm(f => ({...f,industry:e.target.value}))} className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none">
                 <option value="">Select industry…</option>
                 {INDUSTRIES.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
-              </select></div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
               <select value={form.currency} onChange={e => setForm(f => ({...f,currency:e.target.value}))} className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none">
                 {['USD','EUR','GBP','AED','SAR','INR','PKR'].map(c => <option key={c}>{c}</option>)}
-              </select></div>
+              </select>
+            </div>
           </div>
-          <div><label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea value={form.description} onChange={e => setForm(f => ({...f,description:e.target.value}))} rows={2} placeholder="Brief project description…" className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none resize-none"/></div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea value={form.description} onChange={e => setForm(f => ({...f,description:e.target.value}))} rows={2}
+              placeholder="Brief project description…" className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none resize-none"/>
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Upload Documents <span className="text-gray-400 font-normal">(optional — triggers AI analysis)</span>
+              Upload Documents <span className="text-gray-400 font-normal">(optional)</span>
             </label>
-            <div {...getRootProps()} className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors ${isDragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}>
-              <input {...getInputProps()}/><Upload size={20} className="mx-auto text-gray-400 mb-1.5"/>
-              <p className="text-sm text-gray-600">{isDragActive ? 'Drop files here' : 'Drag & drop or click to browse'}</p>
-              <p className="text-xs text-gray-400 mt-1">PDF, Excel, Word, Images, CSV</p>
+            <div {...getRootProps()} className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors ${isDragActive?'border-blue-400 bg-blue-50':'border-gray-200 hover:border-blue-300'}`}>
+              <input {...getInputProps()}/>
+              <Upload size={18} className="mx-auto text-gray-400 mb-1"/>
+              <p className="text-sm text-gray-500">{isDragActive?'Drop here':'Drag & drop or click to browse'}</p>
+              <p className="text-xs text-gray-400 mt-0.5">PDF, Excel, Word, Images, CSV</p>
             </div>
             {files.length > 0 && <div className="mt-2 space-y-1">{files.map((f,i) => (
               <div key={i} className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg">
                 <span className="flex-1 truncate">{f.name}</span>
-                <button onClick={() => setFiles(fs => fs.filter((_,j) => j!==i))} className="text-gray-400 hover:text-red-500">✕</button>
+                <button onClick={() => setFiles(fs => fs.filter((_,j)=>j!==i))} className="text-gray-400 hover:text-red-500">✕</button>
               </div>
             ))}</div>}
           </div>
@@ -122,7 +132,9 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
 export default function ProjectsPage() {
   const router = useRouter(); const qc = useQueryClient();
   const [showModal, setShowModal] = useState(false);
-  const [search, setSearch] = useState(''); const [status, setStatus] = useState(''); const [industry, setIndustry] = useState('');
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('');
+  const [industry, setIndustry] = useState('');
   const [page, setPage] = useState(1);
 
   const { data, isLoading } = useQuery({
@@ -170,7 +182,7 @@ export default function ProjectsPage() {
       {/* Grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_,i) => <div key={i} className="bg-white rounded-xl border border-gray-200 h-48 animate-pulse"/>)}
+          {[...Array(6)].map((_,i) => <div key={i} className="bg-white rounded-xl border border-gray-200 h-52 animate-pulse"/>)}
         </div>
       ) : projects.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 py-24 text-center">
@@ -183,65 +195,70 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map((p: any) => {
-            const created  = formatDateTime(p.createdAt);
-            const updated  = formatDateTime(p.updatedAt);
-            return (
-              <div key={p.id} onClick={() => router.push(`/projects/${p.id}`)}
-                className="bg-white rounded-xl border border-gray-200 p-5 cursor-pointer hover:border-blue-300 hover:shadow-sm transition-all group">
+          {projects.map((p: any) => (
+            <div key={p.id} onClick={() => router.push(`/projects/${p.id}`)}
+              className="bg-white rounded-xl border border-gray-200 p-5 cursor-pointer hover:border-blue-300 hover:shadow-sm transition-all group flex flex-col">
 
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className="font-semibold text-gray-900 text-sm leading-snug group-hover:text-blue-700 line-clamp-2">{p.name}</h3>
-                  <button onClick={e => { e.stopPropagation(); cloneMut.mutate(p.id); }}
-                    className="p-1 rounded-lg opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex-shrink-0" title="Clone project">
-                    <Copy size={13}/>
-                  </button>
-                </div>
-
-                {p.client && <p className="text-xs text-gray-400 mb-2 truncate">{p.client.name}</p>}
-
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SC[p.status]||'bg-gray-100 text-gray-600'}`}>
-                    {STATUS_LABELS[p.status] || p.status}
-                  </span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${AC[p.aiStatus]||'bg-gray-100 text-gray-500'}`}>
-                    {p.aiStatus === 'processing' ? '⚡ AI Processing…' : `AI: ${p.aiStatus}`}
-                  </span>
-                  {p.industry && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-700">
-                      {getIndustryLabel(p.industry)}
-                    </span>
-                  )}
-                </div>
-
-                {p.aiConfidence && (
-                  <div className="mb-3">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-400">AI Confidence</span>
-                      <span className="font-semibold text-gray-700">{p.aiConfidence}%</span>
-                    </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${Number(p.aiConfidence)>=80?'bg-green-500':Number(p.aiConfidence)>=60?'bg-amber-500':'bg-red-400'}`}
-                        style={{ width:`${p.aiConfidence}%` }}/>
-                    </div>
-                  </div>
-                )}
-
-                {/* Creation date & time */}
-                <div className="pt-3 border-t border-gray-50 flex items-center justify-between">
-                  <div className="flex items-center gap-1 text-xs text-gray-400">
-                    <Calendar size={11}/>
-                    <span>{created.date}</span>
-                    <Clock size={11} className="ml-1"/>
-                    <span>{created.time}</span>
-                  </div>
-                  {p.updatedAt !== p.createdAt && (
-                    <span className="text-xs text-gray-300">Updated {updated.date}</span>
-                  )}
-                </div>
+              {/* Title row */}
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <h3 className="font-semibold text-gray-900 text-sm leading-snug group-hover:text-blue-700 line-clamp-2">{p.name}</h3>
+                <button onClick={e => { e.stopPropagation(); cloneMut.mutate(p.id); }}
+                  className="p-1 rounded-lg opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex-shrink-0" title="Clone">
+                  <Copy size={13}/>
+                </button>
               </div>
-            );
-          })}
+
+              {p.client && <p className="text-xs text-gray-400 mb-2 truncate">{p.client.name}</p>}
+
+              {/* Status badges */}
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SC[p.status]||'bg-gray-100 text-gray-600'}`}>
+                  {STATUS_LABELS[p.status] || p.status}
+                </span>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${AC[p.aiStatus]||'bg-gray-100 text-gray-500'}`}>
+                  {p.aiStatus === 'processing' ? '⚡ AI Processing…' : `AI: ${p.aiStatus}`}
+                </span>
+                {p.industry && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-700">
+                    {getIndustryLabel(p.industry)}
+                  </span>
+                )}
+              </div>
+
+              {/* AI confidence bar */}
+              {p.aiConfidence && (
+                <div className="mb-3">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-gray-400">AI Confidence</span>
+                    <span className="font-semibold text-gray-700">{p.aiConfidence}%</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${Number(p.aiConfidence)>=80?'bg-green-500':Number(p.aiConfidence)>=60?'bg-amber-500':'bg-red-400'}`}
+                      style={{ width:`${p.aiConfidence}%` }}/>
+                  </div>
+                </div>
+              )}
+
+              {/* Spacer pushes date to bottom */}
+              <div className="flex-1"/>
+
+              {/* Date AND time — always shown */}
+              <div className="pt-3 mt-2 border-t border-gray-100">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <Calendar size={11} className="text-gray-400 flex-shrink-0"/>
+                  <span className="font-medium">{fmtDate(p.createdAt)}</span>
+                  <span className="text-gray-300 mx-0.5">·</span>
+                  <Clock size={11} className="text-gray-400 flex-shrink-0"/>
+                  <span className="text-gray-400">{fmtTime(p.createdAt)}</span>
+                </div>
+                {p.updatedAt && p.updatedAt !== p.createdAt && (
+                  <p className="text-xs text-gray-300 mt-0.5 pl-0.5">
+                    Updated {fmtDate(p.updatedAt)}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

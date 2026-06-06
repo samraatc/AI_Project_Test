@@ -1,24 +1,29 @@
-# ── Secrets — NEVER commit these ─────────────────────────────
+# ── Secrets — NEVER commit ───────────────────────────────────
+.env
+.env.*
+!.env.example
 backend/.env
-backend/.env.local
-backend/.env.production
-backend/.env.seed
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+scripts/.env
+scripts/.env.*
 
 # ── Build artifacts ───────────────────────────────────────────
 backend/dist/
 backend/node_modules/
 frontend/.next/
 frontend/node_modules/
+frontend/out/
 
-# ── Logs ─────────────────────────────────────────────────────
+# ── Logs ──────────────────────────────────────────────────────
 *.log
 logs/
 
-# ── OS ───────────────────────────────────────────────────────
+# ── OS ────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
-
-# ── SSL certs (managed by certbot on server) ──────────────────
-nginx/ssl/
 *.pem
 *.key
+*.crt
