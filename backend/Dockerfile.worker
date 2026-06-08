@@ -23,6 +23,9 @@ RUN apk add --no-cache \
     ca-certificates \
     ttf-freefont \
     wget \
+    python3 \
+    make \
+    g++ \
     && rm -rf /var/cache/apk/*
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
